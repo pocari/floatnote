@@ -11,6 +11,7 @@ description: FloatNote のリリース作業。バージョン確認・更新、
 
 ```sh
 git status --short          # 未コミットがあれば先にコミットするか聞く
+git branch --show-current   # main であること
 git fetch -q && git status -sb | head -1   # origin/main と一致しているか
 gh auth status
 ```
@@ -34,15 +35,30 @@ git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || git rev-list -
 0.x のうちは minor を patch 相当、機能追加を minor として扱ってよい。
 現在のバージョンと候補を必ず明示する（例: 「0.0.1 → 0.1.0 でいい？」）。
 
-## 4. バージョン反映とコミット・タグ
+## 4. バージョン反映（PR 経由）とタグ
+
+main には直接 push しない（Dependabot の自動マージと混線させないため）。バージョン更新もブランチ → PR → マージで入れる。
 
 ```sh
+git switch -c release/vX.Y.Z
 scripts/set-version.sh X.Y.Z      # package.json / tauri.conf.json / Cargo.toml / lock を更新
 git add -A
 git commit -m "vX.Y.Z"
-git tag vX.Y.Z
-git push && git push --tags
+git push -u origin release/vX.Y.Z
+gh pr create --title "vX.Y.Z" --body "リリース vX.Y.Z のバージョン更新"
 ```
+
+CI（check）が通るまで待ってマージし、main を取り込んでからマージコミットにタグを打つ。
+
+```sh
+until gh pr view --json mergeStateStatus --jq .mergeStateStatus | grep -qE "CLEAN|DIRTY|FAILURE"; do sleep 15; done
+gh pr merge --merge --delete-branch
+git switch main && git pull
+git tag vX.Y.Z
+git push --tags
+```
+
+`gh pr merge` が権限で止められたらユーザーにマージを依頼し、マージ後に続きを行う。
 
 ## 5. ビルド
 
