@@ -38,6 +38,11 @@ npm run dist              # release .app + .dmg（make-dmg.sh）
 - `app-icon.png`（1024px）が元。`npx tauri icon app-icon.png` で `src-tauri/icons/` を再生成。生成される `android/` `ios/` は不要なので削除
 - `src-tauri/icons/tray.png` / `tray@2x.png` はメニューバー用のモノクロテンプレートアイコンで、`tauri icon` では生成されない。上書きしないこと
 
+## dev 中の落とし穴
+
+- `npm run tauri dev` を動かしたまま `npm install` で依存を追加すると、Vite の依存キャッシュが古いまま残って新モジュールが 504 になり、`main.ts` 全体が読み込めず本文が空に見える（データ自体は無事）。依存を追加・削除したら dev を止めて `rm -rf node_modules/.vite` してから再起動する
+- dev の自動再起動はプロセスを kill するため `RunEvent::Exit` を通らない。終了時にしか保存しない処理は dev では動かないと考えること（ウィンドウ状態は移動・リサイズ時にも保存するようにした）
+
 ## 環境メモ
 
 - この環境ではスクリーンショット取得に画面収録権限が無く、Claude から UI の見た目を確認できない。見た目の変更はユーザーにスクリーンショットで確認してもらう

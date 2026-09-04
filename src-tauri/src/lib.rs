@@ -8,6 +8,24 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_store::StoreExt;
+use tauri_plugin_window_state::{AppHandleExt as _, StateFlags};
+
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+/// 移動・リサイズのたびに書くと多すぎるので 500ms デバウンスして保存する
+fn schedule_window_state_save(app: &AppHandle) {
+    static GEN: AtomicU64 = AtomicU64::new(0);
+    let my_gen = GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    let app = Arc::new(app.clone());
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(500));
+        if GEN.load(Ordering::SeqCst) == my_gen {
+            let _ = app.save_window_state(StateFlags::SIZE | StateFlags::POSITION);
+        }
+    });
+}
 
 const STORE_FILE: &str = "settings.json";
 const KEY_LEVEL: &str = "level";
@@ -155,7 +173,13 @@ fn get_note_path(app: AppHandle) -> Result<String, String> {
 fn load_note(app: AppHandle) -> Result<String, String> {
     let path = note_path(&app)?;
     match std::fs::read_to_string(&path) {
-        Ok(s) => Ok(s),
+        Ok(s) => {
+            // 起動時に前回分のバックアップを1世代残す（誤上書きからの復旧用）
+            if !s.trim().is_empty() {
+                let _ = std::fs::copy(&path, path.with_extension("bak.md"));
+            }
+            Ok(s)
+        }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
         Err(e) => Err(e.to_string()),
     }
@@ -244,10 +268,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 // remember size & position of the note window only; visibility is managed by us
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::SIZE
-                        | tauri_plugin_window_state::StateFlags::POSITION,
-                )
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION)
                 .with_denylist(&["settings"])
                 .build(),
         )
@@ -275,11 +296,20 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "main" {
+            if window.label() != "main" {
+                return;
+            }
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     let _ = window.hide();
                 }
+                // 終了時だけでなく移動・リサイズ時にも保存する
+                // (dev の自動再起動や強制終了では Exit を通らず保存されないため)
+                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
+                    schedule_window_state_save(window.app_handle());
+                }
+                _ => {}
             }
         })
         .build(tauri::generate_context!())

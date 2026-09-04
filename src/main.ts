@@ -57,11 +57,15 @@ renderLevel(await invoke<Level>("get_level"));
 
 // ---------- editor (plain text) ----------
 
+let loadFailed = false;
 const initial = await invoke<string>("load_note").catch((e) => {
-  showToast(`読み込み失敗: ${e}`);
+  // 読み込めなかった状態で編集・保存すると既存ファイルを空で上書きしてしまうため、編集不可にする
+  loadFailed = true;
+  showToast(`読み込み失敗: ${e}（編集不可）`);
   return "";
 });
 editor.value = initial;
+if (loadFailed) editor.readOnly = true;
 
 let latest = initial;
 let dirty = false;
