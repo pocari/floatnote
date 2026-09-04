@@ -1,0 +1,43 @@
+:root { color-scheme: light dark; }
+body {
+  margin: 0;
+  padding: 16px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+h1 { font-size: 15px; margin: 0 0 12px; }
+h2 { font-size: 12px; margin: 14px 0 6px; color: color-mix(in srgb, currentColor 70%, transparent); text-transform: uppercase; letter-spacing: .04em; }
+section { margin-bottom: 8px; }
+.desc, .hint { margin: 4px 0; color: color-mix(in srgb, currentColor 65%, transparent); font-size: 12px; }
+.row { display: flex; gap: 8px; align-items: center; }
+.radios { gap: 16px; }
+.hotkey-display {
+  flex: 1;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 6px;
+  display: flex; align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.hotkey-display.recording {
+  border-color: #3478f6;
+  box-shadow: 0 0 0 3px rgba(52, 120, 246, .25);
+}
+.hotkey-display.empty { color: color-mix(in srgb, currentColor 50%, transparent); font-family: inherit; }
+button {
+  font: inherit;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  background: #3478f6; color: #fff;
+}
+button.secondary { background: transparent; color: inherit; }
+button:disabled { opacity: .5; }
+.error { color: #d0342c; font-size: 12px; margin: 6px 0 0; }
+code { font-size: 11px; word-break: break-all; user-select: text; -webkit-user-select: text; }
+.check { display: flex; align-items: center; gap: 6px; }

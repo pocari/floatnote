@@ -1,0 +1,23 @@
+[package]
+name = "floatnote"
+version = "0.1.0"
+description = "Always-on-top floating markdown note"
+authors = ["pocari"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "floatnote_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-autostart = "2.5.1"
+tauri-plugin-window-state = "2.4.1"
