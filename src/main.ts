@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 type Level = "top" | "normal" | "bottom";
 
@@ -11,6 +12,8 @@ const settingsBtn = document.getElementById("settings-btn") as HTMLButtonElement
 const toast = document.getElementById("toast") as HTMLDivElement;
 const levelMenu = document.getElementById("level-menu") as HTMLDivElement;
 const editor = document.getElementById("editor") as HTMLTextAreaElement;
+const highlight = document.getElementById("highlight") as HTMLDivElement;
+const editorWrap = document.getElementById("editor-wrap") as HTMLDivElement;
 
 let toastTimer: number | undefined;
 function showToast(msg: string) {
@@ -75,8 +78,63 @@ async function flush() {
   }
 }
 
+// ---------- URL highlight layer ----------
+// textarea の背後に同じレイアウトで文字を描き、URL だけリンク風に見せる。入力は textarea が受ける。
+const URL_RE = /https?:\/\/[^\s<>"'）」』】]+/g;
+const TRAILING = /[.,;:!?)\]}]+$/;
+
+function escapeHtml(t: string) {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderHighlight(text: string) {
+  let html = "";
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    let url = m[0];
+    const trail = TRAILING.exec(url);
+    if (trail) url = url.slice(0, -trail[0].length);
+    const start = m.index!;
+    html += escapeHtml(text.slice(last, start));
+    html += `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`;
+    last = start + url.length;
+  }
+  html += escapeHtml(text.slice(last));
+  // 末尾の改行分の高さを textarea と合わせる
+  highlight.innerHTML = html + (text.endsWith("\n") ? "\u200b" : "");
+}
+
+function linkAt(x: number, y: number): string | null {
+  for (const a of highlight.querySelectorAll<HTMLAnchorElement>("a")) {
+    for (const r of a.getClientRects()) {
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return a.getAttribute("href");
+    }
+  }
+  return null;
+}
+
+// ⌘+クリックで URL を既定ブラウザで開く。通常クリックはカーソル移動のまま
+editor.addEventListener("mousedown", (e) => {
+  if (!e.metaKey || e.button !== 0) return;
+  const url = linkAt(e.clientX, e.clientY);
+  if (!url) return;
+  e.preventDefault();
+  openUrl(url).catch((err) => showToast(`開けません: ${err}`));
+});
+editor.addEventListener("scroll", () => {
+  highlight.scrollTop = editor.scrollTop;
+  highlight.scrollLeft = editor.scrollLeft;
+});
+// ⌘ を押している間だけカーソルをポインタにして「開ける」ことを示す
+window.addEventListener("keydown", (e) => { if (e.key === "Meta") editorWrap.classList.add("cmd"); });
+window.addEventListener("keyup", (e) => { if (e.key === "Meta") editorWrap.classList.remove("cmd"); });
+window.addEventListener("blur", () => editorWrap.classList.remove("cmd"));
+
+renderHighlight(initial);
+
 editor.addEventListener("input", () => {
   latest = editor.value;
+  renderHighlight(latest);
   dirty = true;
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(flush, 500);

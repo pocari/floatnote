@@ -20,7 +20,10 @@
       </div>
       <button id="settings-btn" class="icon-btn" title="設定">⚙</button>
     </header>
-    <textarea id="editor" placeholder="メモを書く…" spellcheck="false"></textarea>
+    <div id="editor-wrap">
+      <div id="highlight" aria-hidden="true"></div>
+      <textarea id="editor" placeholder="メモを書く…" spellcheck="false"></textarea>
+    </div>
     <div id="toast" hidden></div>
   </body>
 </html>
