@@ -73,12 +73,17 @@ pnpm dist
 
 手順2の git log を元に、ユーザー向けの日本語で箴条書きにする。コミットメッセージの丸写しではなく「何ができるようになったか / 何が直ったか」で書く。内部的な変更（CI、リファクタ、ドキュメント）は「その他」にまとめるか省く。
 
-末尾に必ずインストール注記を付ける:
+末尾に必ずインストール注記を付ける（README の「インストール」節と同じ内容）:
 
-```
+````
 ### インストール
-.dmg を開いて FloatNote.app を Applications へ。署名は ad hoc のため、初回起動時に Gatekeeper に止められたら右クリック →「開く」、またはシステム設定 → プライバシーとセキュリティ →「このまま開く」。
+.dmg を開いて FloatNote.app を Applications へ。
+署名は ad hoc（Developer ID なし）のため、ダウンロードした .app は macOS に「壊れているため開けません」と表示されて起動できません。ファイルは壊れていないので、Applications にコピーした後にターミナルで quarantine 属性を外してください。
+
+```sh
+xattr -cr /Applications/FloatNote.app
 ```
+````
 
 ## 7. GitHub Release 作成
 
