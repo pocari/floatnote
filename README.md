@@ -31,7 +31,7 @@ macOS 用の常駐フローティングメモ。常に最前面（または最�
 
 ## インストール
 
-`npm run dist` で作った `FloatNote_<version>_<arch>.dmg` を開き、`FloatNote.app` を Applications へ。
+`pnpm dist` で作った `FloatNote_<version>_<arch>.dmg` を開き、`FloatNote.app` を Applications へ。
 署名は ad hoc のため、初回起動時に Gatekeeper に止められたら右クリック →「開く」、またはシステム設定 → プライバシーとセキュリティ →「このまま開く」。
 
 ## 開発
@@ -39,14 +39,14 @@ macOS 用の常駐フローティングメモ。常に最前面（または最�
 必要なもの：Node.js、Rust（cargo）、Xcode Command Line Tools。
 
 ```sh
-npm install
-npm run tauri dev      # ホットリロード付きで起動
+pnpm install
+pnpm tauri dev      # ホットリロード付きで起動
 ```
 
 ## ビルド
 
 ```sh
-npm run dist           # release ビルド → src-tauri/target/release/bundle/{macos,dmg}/
+pnpm dist               # release ビルド → src-tauri/target/release/bundle/{macos,dmg}/
 ```
 
 Tauri 標準の dmg 生成は Finder の AppleScript 操作を要するため、`make-dmg.sh` で `hdiutil` を使って作っている。

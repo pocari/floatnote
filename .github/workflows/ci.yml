@@ -11,10 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -23,13 +25,13 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Type check (TypeScript)
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
 
       - name: Build frontend
-        run: npx vite build
+        run: pnpm exec vite build
 
       - name: Check (Rust)
         working-directory: src-tauri

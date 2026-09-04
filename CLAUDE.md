@@ -5,18 +5,18 @@ macOS 常駐のフローティングメモ（Tauri v2 + Vite + TypeScript、UI �
 ## コマンド
 
 ```sh
-npm install               # 初回
-npm run tauri dev         # 開発起動。フロントは HMR、Rust は変更で自動再ビルド・再起動
-npx tsc --noEmit          # フロントの型チェック
+pnpm install              # 初回（pnpm。npm は使わない）
+pnpm tauri dev            # 開発起動。フロントは HMR、Rust は変更で自動再ビルド・再起動
+pnpm exec tsc --noEmit    # フロントの型チェック
 (cd src-tauri && cargo check)   # Rust の型チェック
-npm run dist              # release .app + .dmg（make-dmg.sh）
+pnpm dist                 # release .app + .dmg（make-dmg.sh）
 ```
 
-`npm run tauri build` 単体は .app までしか作らない（dmg は make-dmg.sh の hdiutil で作る。Tauri の dmg スクリプトは Finder 操作が必要でサンドボックス内で失敗するため）。
+`pnpm tauri build` 単体は .app までしか作らない（dmg は make-dmg.sh の hdiutil で作る。Tauri の dmg スクリプトは Finder 操作が必要でサンドボックス内で失敗するため）。
 
 ## リリース
 
-- `/app-release` スキル（`.claude/skills/app-release/SKILL.md`）でバージョン確認 → タグ → `npm run dist` → GitHub Release 作成まで行う
+- `/app-release` スキル（`.claude/skills/app-release/SKILL.md`）でバージョン確認 → タグ → `pnpm dist` → GitHub Release 作成まで行う
 - バージョンは `scripts/set-version.sh X.Y.Z` で package.json / tauri.conf.json / Cargo.toml / 各 lock に一括反映する。手で個別に書き換えない
 
 ## 設計上の約束
@@ -36,17 +36,17 @@ npm run dist              # release .app + .dmg（make-dmg.sh）
 ## フロントの新しい Tauri API を使うとき
 
 - コマンド追加：`lib.rs` に `#[tauri::command]` を書き、`generate_handler!` に追加
-- プラグイン追加：`cargo add tauri-plugin-xxx` + `npm i @tauri-apps/plugin-xxx` + `lib.rs` で `.plugin(...)` + `src-tauri/capabilities/default.json` の permissions に `xxx:default`
+- プラグイン追加：`cargo add tauri-plugin-xxx` + `pnpm add @tauri-apps/plugin-xxx` + `lib.rs` で `.plugin(...)` + `src-tauri/capabilities/default.json` の permissions に `xxx:default`
 - 新しいウィンドウを作る場合は capabilities の `windows` にラベルを追加し、`vite.config.ts` の `rollupOptions.input` に HTML を追加
 
 ## アイコン
 
-- `app-icon.png`（1024px）が元。`npx tauri icon app-icon.png` で `src-tauri/icons/` を再生成。生成される `android/` `ios/` は不要なので削除
+- `app-icon.png`（1024px）が元。`pnpm exec tauri icon app-icon.png` で `src-tauri/icons/` を再生成。生成される `android/` `ios/` は不要なので削除
 - `src-tauri/icons/tray.png` / `tray@2x.png` はメニューバー用のモノクロテンプレートアイコンで、`tauri icon` では生成されない。上書きしないこと
 
 ## dev 中の落とし穴
 
-- `npm run tauri dev` を動かしたまま `npm install` で依存を追加すると、Vite の依存キャッシュが古いまま残って新モジュールが 504 になり、`main.ts` 全体が読み込めず本文が空に見える（データ自体は無事）。依存を追加・削除したら dev を止めて `rm -rf node_modules/.vite` してから再起動する
+- `pnpm tauri dev` を動かしたまま `pnpm add` で依存を追加すると、Vite の依存キャッシュが古いまま残って新モジュールが 504 になり、`main.ts` 全体が読み込めず本文が空に見える（データ自体は無事）。依存を追加・削除したら dev を止めて `rm -rf node_modules/.vite` してから再起動する
 - dev の自動再起動はプロセスを kill するため `RunEvent::Exit` を通らない。終了時にしか保存しない処理は dev では動かないと考えること（ウィンドウ状態は移動・リサイズ時にも保存するようにした）
 
 ## 環境メモ

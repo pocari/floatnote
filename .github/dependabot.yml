@@ -4,7 +4,7 @@
 #   公開直後の不正バージョン(サプライチェーン攻撃)を即時に取り込まないための猶予。
 version: 2
 updates:
-  - package-ecosystem: "npm"
+  - package-ecosystem: "npm"   # pnpm-lock.yaml も npm ecosystem が扱う
     directory: "/"
     schedule:
       interval: "daily"

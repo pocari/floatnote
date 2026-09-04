@@ -47,7 +47,7 @@ git push && git push --tags
 ## 5. ビルド
 
 ```sh
-npm run dist
+pnpm dist
 ```
 
 生成物: `src-tauri/target/release/bundle/dmg/FloatNote_X.Y.Z_<arch>.dmg`
