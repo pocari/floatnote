@@ -1,6 +1,6 @@
 [package]
 name = "floatnote"
-version = "0.1.0"
+version = "0.0.1"
 description = "Always-on-top floating markdown note"
 authors = ["pocari"]
 edition = "2021"

@@ -14,6 +14,11 @@ npm run dist              # release .app + .dmg（make-dmg.sh）
 
 `npm run tauri build` 単体は .app までしか作らない（dmg は make-dmg.sh の hdiutil で作る。Tauri の dmg スクリプトは Finder 操作が必要でサンドボックス内で失敗するため）。
 
+## リリース
+
+- `/app-release` スキル（`.claude/skills/app-release/SKILL.md`）でバージョン確認 → タグ → `npm run dist` → GitHub Release 作成まで行う
+- バージョンは `scripts/set-version.sh X.Y.Z` で package.json / tauri.conf.json / Cargo.toml / 各 lock に一括反映する。手で個別に書き換えない
+
 ## 設計上の約束
 
 - **ウィンドウ位置は Rust 側が唯一の管理者**。`apply_level()` が NSWindow レベル変更・store への保存・トレイのチェック更新・`level-changed` イベント発火をまとめて行う。フロントは `set_level` を invoke し、`level-changed` を listen して表示を更新するだけ
