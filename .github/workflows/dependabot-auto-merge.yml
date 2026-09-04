@@ -3,6 +3,8 @@ name: Dependabot auto-merge
 # dependabot の PR のうちメジャーバージョンアップ以外を自動マージ(auto-merge)予約する。
 # 実際のマージは main ruleset の required checks(CI) が全て成功した時点で GitHub が行う。
 # メジャーアップデートは影響が大きいため手動レビュー・マージとする。
+# ただし GitHub Actions のメジャーアップデートは runner 側の Node 更新などが主で
+# アプリへの影響が無いため、メジャーも自動マージ対象にする。
 #
 # このリポジトリはマージ後に走らせたいワークフロー(デプロイ等)が無いため、
 # PAT ではなく GITHUB_TOKEN で予約している。マージ後の push でワークフローを
@@ -25,8 +27,10 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Enable auto-merge (non-major updates)
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+      - name: Enable auto-merge (non-major updates, or any github-actions update)
+        if: >-
+          steps.metadata.outputs.update-type != 'version-update:semver-major' ||
+          steps.metadata.outputs.package-ecosystem == 'github_actions'
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
