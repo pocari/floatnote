@@ -1,0 +1,33 @@
+name: Dependabot auto-merge
+
+# dependabot の PR のうちメジャーバージョンアップ以外を自動マージ(auto-merge)予約する。
+# 実際のマージは main ruleset の required checks(CI) が全て成功した時点で GitHub が行う。
+# メジャーアップデートは影響が大きいため手動レビュー・マージとする。
+#
+# このリポジトリはマージ後に走らせたいワークフロー(デプロイ等)が無いため、
+# PAT ではなく GITHUB_TOKEN で予約している。マージ後の push でワークフローを
+# 起動したくなったら nfs-management と同様に Dependabot secret の PAT に切り替える。
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Enable auto-merge (non-major updates)
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --merge "$PR_URL"

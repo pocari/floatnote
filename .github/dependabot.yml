@@ -1,0 +1,40 @@
+# Dependabot バージョン更新設定。
+# - schedule.interval: daily   … 最新版のチェックを毎日実施。
+# - cooldown.default-days: 7   … 新リリースから 7 日経過するまで更新 PR を作らない。
+#   公開直後の不正バージョン(サプライチェーン攻撃)を即時に取り込まないための猶予。
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    groups:
+      # Tauri の JS API とプラグインは Rust 側と足並みを揃える必要があるためまとめる
+      tauri:
+        patterns:
+          - "@tauri-apps/*"
+
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    groups:
+      # tauri 本体とプラグインは同時に上げる
+      tauri:
+        patterns:
+          - "tauri"
+          - "tauri-*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
