@@ -11,15 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-        with:
-          # npm 経由の self-installer が macOS ランナーで数分かかるため、単体バイナリを直接取得する
-          standalone: true
-
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: 'pnpm'
+
+      # pnpm/action-setup は内部で npm install を使い、macOS ランナーでは 2〜5 分かかっていた。
+      # Node 同梱の corepack で package.json の packageManager どおりの pnpm を直接取得する。
+      - name: Enable pnpm via corepack
+        run: corepack enable && pnpm --version
 
       - uses: dtolnay/rust-toolchain@stable
 
