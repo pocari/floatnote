@@ -12,6 +12,9 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
+        with:
+          # npm 経由の self-installer が macOS ランナーで数分かかるため、単体バイナリを直接取得する
+          standalone: true
 
       - uses: actions/setup-node@v7
         with:
