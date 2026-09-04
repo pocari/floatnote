@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { isEnabled, enable, disable } from "@tauri-apps/plugin-autostart";
 
@@ -9,6 +10,7 @@ const recordBtn = document.getElementById("record-btn") as HTMLButtonElement;
 const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement;
 const errorEl = document.getElementById("error") as HTMLParagraphElement;
 const notePathEl = document.getElementById("note-path") as HTMLElement;
+const versionEl = document.getElementById("app-version") as HTMLElement;
 const radios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="level"]'));
 
 let recording = false;
@@ -154,6 +156,7 @@ await listen<string | null>("hotkey-changed", (ev) => { if (!recording) render(e
 render(await invoke<string | null>("get_hotkey"));
 renderLevel(await invoke<Level>("get_level"));
 notePathEl.textContent = await invoke<string>("get_note_path").catch(() => "(不明)");
+versionEl.textContent = await getVersion().then((v) => `v${v}`).catch(() => "");
 
 // ---------- autostart ----------
 const autostartEl = document.getElementById("autostart") as HTMLInputElement;
