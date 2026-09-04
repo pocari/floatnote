@@ -32,7 +32,11 @@ macOS 用の常駐フローティングメモ。常に最前面（または最�
 ## インストール
 
 `pnpm dist` で作った `FloatNote_<version>_<arch>.dmg` を開き、`FloatNote.app` を Applications へ。
-署名は ad hoc のため、初回起動時に Gatekeeper に止められたら右クリック →「開く」、またはシステム設定 → プライバシーとセキュリティ →「このまま開く」。
+署名は ad hoc（Developer ID なし）のため、ダウンロードした .app は macOS に「壊れているため開けません」と表示されて起動できません。ファイルは壊れていないので、Applications にコピーした後にターミナルで quarantine 属性を外してください。
+
+```sh
+xattr -cr /Applications/FloatNote.app
+```
 
 ## 開発
 
