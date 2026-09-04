@@ -5,6 +5,8 @@
   --fg: #1d1d1f;
   --muted: #8a8a8e;
   --hover: rgba(0, 0, 0, 0.06);
+  --panel: rgba(0, 0, 0, 0.055);
+  --line: rgba(0, 0, 0, 0.18);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -12,6 +14,8 @@
     --fg: #e8e8ea;
     --muted: #8a8a8e;
     --hover: rgba(255, 255, 255, 0.08);
+    --panel: rgba(255, 255, 255, 0.075);
+    --line: rgba(255, 255, 255, 0.16);
   }
 }
 
@@ -22,6 +26,12 @@ html, body {
   color: var(--fg);
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
   overflow: hidden;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--bar-h); /* header は固定配置なのでその分を空ける */
+  box-sizing: border-box;
 }
 
 #bar {
@@ -56,8 +66,9 @@ html, body {
 .icon-btn:hover { background: var(--hover); color: var(--fg); }
 
 #editor-wrap {
-  position: absolute;
-  top: var(--bar-h); left: 0; right: 0; bottom: 0;
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 /* textarea と highlight は完全に同じボックス・フォント・余白にして文字位置を一致させる */
 #editor, #highlight {
@@ -87,6 +98,59 @@ html, body {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* 優先タスク行。文字幅が変わる装飾(太字等)は textarea とずれるので色だけ */
+#highlight .p1 { color: #d4a017; }
+#highlight .p2 { color: #f0872b; }
+#highlight .p3 { color: #ef4444; }
+#highlight .p1 a, #highlight .p2 a, #highlight .p3 a { color: inherit; }
+
+/* ---- 今やる 帯 ---- */
+#focus {
+  flex: none;
+  margin: 0 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  user-select: none;
+  -webkit-user-select: none;
+}
+#focus[hidden] { display: none; }
+#focus-list {
+  list-style: none;
+  margin: 0;
+  padding: 5px 6px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+#focus-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: default;
+}
+#focus-list li:hover { background: var(--hover); }
+#focus-list .proj {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 2.5em;
+}
+#focus-list .task {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#focus-list .p3 .task { color: #ef4444; }
+#focus-list .p2 .task { color: #f0872b; }
+#focus-list .p1 .task { color: #d4a017; }
+
 #editor {
   z-index: 2;
   outline: none;

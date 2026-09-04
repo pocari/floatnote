@@ -91,22 +91,84 @@ function escapeHtml(t: string) {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function renderHighlight(text: string) {
+const TASK_RE = /^(\s*[-*]\s+)(!+)(\s*)(.*)$/;
+const HEAD_RE = /^#+\s+(.*\S)\s*$/;
+
+function linkify(line: string): string {
   let html = "";
   let last = 0;
-  for (const m of text.matchAll(URL_RE)) {
+  for (const m of line.matchAll(URL_RE)) {
     let url = m[0];
     const trail = TRAILING.exec(url);
     if (trail) url = url.slice(0, -trail[0].length);
     const start = m.index!;
-    html += escapeHtml(text.slice(last, start));
+    html += escapeHtml(line.slice(last, start));
     html += `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`;
     last = start + url.length;
   }
-  html += escapeHtml(text.slice(last));
-  // 末尾の改行分の高さを textarea と合わせる
-  highlight.innerHTML = html + (text.endsWith("\n") ? "\u200b" : "");
+  return html + escapeHtml(line.slice(last));
 }
+
+function priorityClass(n: number) {
+  return n >= 3 ? "p3" : n === 2 ? "p2" : "p1";
+}
+
+function renderHighlight(text: string) {
+  const lines = text.split("\n");
+  const out = lines.map((line, i) => {
+    const t = TASK_RE.exec(line);
+    const body = linkify(line);
+    const cls = t ? ` class="ln ${priorityClass(t[2].length)}"` : ` class="ln"`;
+    return `<span${cls} data-i="${i}">${body}</span>`;
+  });
+  // 末尾の改行分の高さを textarea と合わせる
+  highlight.innerHTML = out.join("\n") + (text.endsWith("\n") ? "\u200b" : "");
+}
+
+// ---------- 今やる（優先タスク抽出） ----------
+const focusEl = document.getElementById("focus") as HTMLElement;
+const focusList = document.getElementById("focus-list") as HTMLUListElement;
+
+type Task = { line: number; priority: number; text: string; project: string };
+
+function extractTasks(text: string): Task[] {
+  const tasks: Task[] = [];
+  let project = "";
+  text.split("\n").forEach((line, i) => {
+    const h = HEAD_RE.exec(line);
+    if (h) { project = h[1]; return; }
+    const t = TASK_RE.exec(line);
+    if (t && t[4].trim()) tasks.push({ line: i, priority: t[2].length, text: t[4].trim(), project });
+  });
+  // 優先度の高い順、同じ優先度なら本文の出現順
+  return tasks.sort((a, b) => b.priority - a.priority || a.line - b.line);
+}
+
+function renderFocus(text: string) {
+  const tasks = extractTasks(text);
+  focusEl.hidden = tasks.length === 0;
+  focusList.innerHTML = tasks
+    .map((t) =>
+      `<li class="${priorityClass(t.priority)}" data-line="${t.line}" title="${escapeHtml(t.text)}">` +
+      `<span class="proj">${escapeHtml(t.project)}</span><span class="task">${escapeHtml(t.text)}</span></li>`)
+    .join("");
+}
+
+function jumpToLine(n: number) {
+  const lines = editor.value.split("\n");
+  let start = 0;
+  for (let i = 0; i < n; i++) start += lines[i].length + 1;
+  editor.focus();
+  editor.setSelectionRange(start, start + lines[n].length);
+  const el = highlight.querySelector<HTMLElement>(`.ln[data-i="${n}"]`);
+  if (el) editor.scrollTop = Math.max(0, el.offsetTop - editor.clientHeight / 3);
+}
+
+focusList.addEventListener("click", (e) => {
+  const li = (e.target as HTMLElement).closest<HTMLLIElement>("li[data-line]");
+  if (li) jumpToLine(Number(li.dataset.line));
+});
+
 
 function linkAt(x: number, y: number): string | null {
   for (const a of highlight.querySelectorAll<HTMLAnchorElement>("a")) {
@@ -135,10 +197,12 @@ window.addEventListener("keyup", (e) => { if (e.key === "Meta") editorWrap.class
 window.addEventListener("blur", () => editorWrap.classList.remove("cmd"));
 
 renderHighlight(initial);
+renderFocus(initial);
 
 editor.addEventListener("input", () => {
   latest = editor.value;
   renderHighlight(latest);
+  renderFocus(latest);
   dirty = true;
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(flush, 500);
