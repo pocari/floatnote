@@ -15,6 +15,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// 移動・リサイズのたびに書くと多すぎるので 500ms デバウンスして保存する
+///
+/// 保存は必ずメインスレッドで行う。`save_window_state` はプラグイン内部の cache mutex を
+/// 握ったままウィンドウ位置を問い合わせる（macOS ではメインスレッドへ同期ディスパッチ）。
+/// 一方メインスレッドはプラグインの Moved/Resized ハンドラで同じ mutex を取るため、
+/// 背景スレッドから呼ぶとスリープ復帰時などの Moved/Resized 連打でデッドロックする。
 fn schedule_window_state_save(app: &AppHandle) {
     static GEN: AtomicU64 = AtomicU64::new(0);
     let my_gen = GEN.fetch_add(1, Ordering::SeqCst) + 1;
@@ -22,7 +27,10 @@ fn schedule_window_state_save(app: &AppHandle) {
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(500));
         if GEN.load(Ordering::SeqCst) == my_gen {
-            let _ = app.save_window_state(StateFlags::SIZE | StateFlags::POSITION);
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = handle.save_window_state(StateFlags::SIZE | StateFlags::POSITION);
+            });
         }
     });
 }
