@@ -208,13 +208,38 @@ editor.addEventListener("input", () => {
   saveTimer = window.setTimeout(flush, 500);
 });
 
-// Tab inserts two spaces instead of moving focus
+// Tab inserts two spaces instead of moving focus.
+// With a multi-line selection, Tab / Shift+Tab indents / outdents every selected line.
 editor.addEventListener("keydown", (e) => {
   if (e.key !== "Tab" || e.metaKey || e.ctrlKey || e.altKey) return;
   e.preventDefault();
   const { selectionStart: s, selectionEnd: en, value } = editor;
-  if (e.shiftKey) {
-    const lineStart = value.lastIndexOf("\n", s - 1) + 1;
+  const lineStart = value.lastIndexOf("\n", s - 1) + 1;
+  const multiLine = value.slice(s, en).includes("\n");
+
+  if (multiLine) {
+    // Exclude a trailing newline so the line after the selection is not touched
+    const blockEnd = en > s && value[en - 1] === "\n" ? en - 1 : en;
+    let lineEnd = value.indexOf("\n", blockEnd);
+    if (lineEnd === -1) lineEnd = value.length;
+    const lines = value.slice(lineStart, lineEnd).split("\n");
+    let firstDelta = 0;
+    const out = lines.map((line, i) => {
+      if (e.shiftKey) {
+        const m = /^( {1,2})/.exec(line);
+        const n = m ? m[1].length : 0;
+        if (i === 0) firstDelta = -n;
+        return line.slice(n);
+      }
+      if (i === 0) firstDelta = 2;
+      return "  " + line;
+    });
+    const replaced = out.join("\n");
+    editor.setRangeText(replaced, lineStart, lineEnd, "end");
+    const newStart = Math.max(lineStart, s + firstDelta);
+    const newEnd = lineStart + replaced.length + (en - blockEnd);
+    editor.setSelectionRange(newStart, newEnd);
+  } else if (e.shiftKey) {
     const m = /^( {1,2})/.exec(value.slice(lineStart));
     if (!m) return;
     editor.setRangeText("", lineStart, lineStart + m[1].length, "end");
