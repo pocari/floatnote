@@ -38,6 +38,8 @@ fn schedule_window_state_save(app: &AppHandle) {
 const STORE_FILE: &str = "settings.json";
 const KEY_LEVEL: &str = "level";
 const KEY_HOTKEY: &str = "hotkey";
+/// ノートにフォーカスがあるときだけ効く、ウィンドウ位置の順送りキー（グローバル登録はしない）
+const KEY_LEVEL_HOTKEY: &str = "level_hotkey";
 const NOTE_FILE: &str = "note.md";
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
@@ -45,13 +47,21 @@ const NOTE_FILE: &str = "note.md";
 pub enum Level {
     Top,
     Normal,
-    Bottom,
+}
+
+impl Level {
+    /// 最前面 ⇔ 通常
+    fn next(self) -> Level {
+        match self {
+            Level::Top => Level::Normal,
+            Level::Normal => Level::Top,
+        }
+    }
 }
 
 struct TrayItems {
     top: CheckMenuItem<Wry>,
     normal: CheckMenuItem<Wry>,
-    bottom: CheckMenuItem<Wry>,
 }
 
 // ---------- store helpers ----------
@@ -82,25 +92,11 @@ fn current_level(app: &AppHandle) -> Level {
 
 fn apply_level(app: &AppHandle, level: Level) -> Result<(), String> {
     let win = app.get_webview_window("main").ok_or("main window not found")?;
-    match level {
-        Level::Top => {
-            win.set_always_on_bottom(false).map_err(|e| e.to_string())?;
-            win.set_always_on_top(true).map_err(|e| e.to_string())?;
-        }
-        Level::Normal => {
-            win.set_always_on_top(false).map_err(|e| e.to_string())?;
-            win.set_always_on_bottom(false).map_err(|e| e.to_string())?;
-        }
-        Level::Bottom => {
-            win.set_always_on_top(false).map_err(|e| e.to_string())?;
-            win.set_always_on_bottom(true).map_err(|e| e.to_string())?;
-        }
-    }
+    win.set_always_on_top(level == Level::Top).map_err(|e| e.to_string())?;
     store_set(app, KEY_LEVEL, level)?;
     if let Some(items) = app.try_state::<TrayItems>() {
         let _ = items.top.set_checked(level == Level::Top);
         let _ = items.normal.set_checked(level == Level::Normal);
-        let _ = items.bottom.set_checked(level == Level::Bottom);
     }
     let _ = app.emit("level-changed", level);
     Ok(())
@@ -137,12 +133,20 @@ fn set_level(app: AppHandle, level: Level) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn cycle_level(app: AppHandle) -> Result<(), String> {
+    apply_level(&app, current_level(&app).next())
+}
+
+#[tauri::command]
 fn get_hotkey(app: AppHandle) -> Option<String> {
     store_get::<String>(&app, KEY_HOTKEY)
 }
 
 #[tauri::command]
 fn set_hotkey(app: AppHandle, hotkey: Option<String>) -> Result<(), String> {
+    if hotkey.is_some() && hotkey == store_get::<String>(&app, KEY_LEVEL_HOTKEY) {
+        return Err("ウィンドウ位置の切替キーと同じキーは使えません".into());
+    }
     let previous = store_get::<String>(&app, KEY_HOTKEY);
     app.global_shortcut()
         .unregister_all()
@@ -163,6 +167,29 @@ fn set_hotkey(app: AppHandle, hotkey: Option<String>) -> Result<(), String> {
         }
     }
     let _ = app.emit("hotkey-changed", store_get::<String>(&app, KEY_HOTKEY));
+    Ok(())
+}
+
+#[tauri::command]
+fn get_level_hotkey(app: AppHandle) -> Option<String> {
+    store_get::<String>(&app, KEY_LEVEL_HOTKEY)
+}
+
+/// 判定はノートのフロント側で keydown を見て行うので、ここでは形式チェックと保存だけ
+#[tauri::command]
+fn set_level_hotkey(app: AppHandle, hotkey: Option<String>) -> Result<(), String> {
+    match hotkey {
+        Some(hk) if !hk.trim().is_empty() => {
+            Shortcut::from_str(&hk).map_err(|e| format!("無効なショートカット: {e}"))?;
+            // グローバルホットキーと同じだと OS 側に先に取られてノートに届かない
+            if store_get::<String>(&app, KEY_HOTKEY).as_deref() == Some(hk.as_str()) {
+                return Err("ホットキーと同じキーは使えません".into());
+            }
+            store_set(&app, KEY_LEVEL_HOTKEY, hk)?;
+        }
+        _ => store_delete(&app, KEY_LEVEL_HOTKEY)?,
+    }
+    let _ = app.emit("level-hotkey-changed", store_get::<String>(&app, KEY_LEVEL_HOTKEY));
     Ok(())
 }
 
@@ -210,7 +237,7 @@ fn open_settings(app: AppHandle) -> Result<(), String> {
     }
     WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App("settings.html".into()))
         .title("FloatNote 設定")
-        .inner_size(440.0, 320.0)
+        .inner_size(440.0, 420.0)
         .resizable(false)
         .always_on_top(true)
         .build()
@@ -225,15 +252,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "ノートを表示", true, None::<&str>)?;
     let top = CheckMenuItem::with_id(app, "level_top", "常に最前面", true, level == Level::Top, None::<&str>)?;
     let normal = CheckMenuItem::with_id(app, "level_normal", "通常", true, level == Level::Normal, None::<&str>)?;
-    let bottom = CheckMenuItem::with_id(app, "level_bottom", "常に最奥", true, level == Level::Bottom, None::<&str>)?;
-    let level_menu = Submenu::with_items(app, "ウィンドウ位置", true, &[&top, &normal, &bottom])?;
+    let level_menu = Submenu::with_items(app, "ウィンドウ位置", true, &[&top, &normal])?;
     let settings = MenuItem::with_id(app, "settings", "設定...", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "FloatNote を終了", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&show, &sep, &level_menu, &settings, &sep2, &quit])?;
 
-    app.manage(TrayItems { top, normal, bottom });
+    app.manage(TrayItems { top, normal });
 
     TrayIconBuilder::with_id("tray")
         .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray@2x.png"))?)
@@ -245,7 +271,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "show" => bring_to_front(app),
             "level_top" => { let _ = apply_level(app, Level::Top); }
             "level_normal" => { let _ = apply_level(app, Level::Normal); }
-            "level_bottom" => { let _ = apply_level(app, Level::Bottom); }
             "settings" => { let _ = open_settings(app.clone()); }
             "quit" => app.exit(0),
             _ => {}
@@ -290,7 +315,7 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            get_level, set_level, get_hotkey, set_hotkey, load_note, save_note, get_note_path, open_settings
+            get_level, set_level, cycle_level, get_hotkey, set_hotkey, get_level_hotkey, set_level_hotkey, load_note, save_note, get_note_path, open_settings
         ])
         .setup(|app| {
             let handle = app.handle().clone();

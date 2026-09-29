@@ -12,13 +12,23 @@
 
     <section>
       <h2>ホットキー</h2>
-      <p class="desc">押すとノートを最前面に戻して表示します。未設定の場合は無効です。</p>
-      <div class="row">
-        <div id="hotkey-display" class="hotkey-display" tabindex="0">未設定</div>
-        <button id="record-btn">キーを設定</button>
-        <button id="clear-btn" class="secondary">解除</button>
+      <p class="desc">どこからでも押すとノートを最前面に戻して表示します。未設定の場合は無効です。</p>
+      <div class="row" data-recorder="global">
+        <div class="hotkey-display" tabindex="0">未設定</div>
+        <button class="record-btn">キーを設定</button>
+        <button class="clear-btn secondary">解除</button>
       </div>
-      <p id="hint" class="hint">「キーを設定」を押してから、登録したいキーの組み合わせを押してください。⌘ / ⌃ / ⌥ のいずれかが必要です。Esc でキャンセル。</p>
+    </section>
+
+    <section>
+      <h2>ウィンドウ位置の切替キー</h2>
+      <p class="desc">ノートにフォーカスがあるときだけ有効。押すたびに 最前面 と 通常 を切り替えます。</p>
+      <div class="row" data-recorder="level">
+        <div class="hotkey-display" tabindex="0">未設定</div>
+        <button class="record-btn">キーを設定</button>
+        <button class="clear-btn secondary">解除</button>
+      </div>
+      <p class="hint">「キーを設定」を押してから、登録したいキーの組み合わせを押してください。⌘ / ⌃ / ⌥ のいずれかが必要です。Esc でキャンセル。</p>
       <p id="error" class="error" hidden></p>
     </section>
 
@@ -27,7 +37,6 @@
       <div class="row radios">
         <label><input type="radio" name="level" value="top" /> 常に最前面</label>
         <label><input type="radio" name="level" value="normal" /> 通常</label>
-        <label><input type="radio" name="level" value="bottom" /> 常に最奥</label>
       </div>
     </section>
 
