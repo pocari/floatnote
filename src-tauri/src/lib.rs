@@ -86,7 +86,6 @@ fn store_delete(app: &AppHandle, key: &str) -> Result<(), String> {
 
 // ---------- window level ----------
 
-/// 以前あった "bottom" などデシリアライズできない値は最前面として扱う
 fn current_level(app: &AppHandle) -> Level {
     store_get::<Level>(app, KEY_LEVEL).unwrap_or(Level::Top)
 }
