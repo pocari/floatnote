@@ -3,9 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { shortcutFromEvent, pretty } from "./shortcut";
 
-type Level = "top" | "normal" | "bottom";
+type Level = "top" | "normal";
 
-const LEVEL_LABEL: Record<Level, string> = { top: "常に最前面", normal: "通常", bottom: "常に最奥（他のウィンドウの後ろに回ります）" };
+const LEVEL_LABEL: Record<Level, string> = { top: "常に最前面", normal: "通常" };
 
 const levelEl = document.getElementById("level") as HTMLDivElement;
 const levelBtns = Array.from(levelEl.querySelectorAll<HTMLButtonElement>("button[data-level]"));
@@ -36,7 +36,7 @@ function renderLevel(level: Level) {
 }
 
 function renderLevelTitles() {
-  const hint = levelHotkey ? `（${pretty(levelHotkey)} で順に切替）` : "";
+  const hint = levelHotkey ? `（${pretty(levelHotkey)} で切替）` : "";
   levelBtns.forEach((b) => (b.title = LEVEL_LABEL[b.dataset.level as Level] + hint));
 }
 

@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { isEnabled, enable, disable } from "@tauri-apps/plugin-autostart";
 import { shortcutFromEvent, pretty } from "./shortcut";
 
-type Level = "top" | "normal" | "bottom";
+type Level = "top" | "normal";
 
 const errorEl = document.getElementById("error") as HTMLParagraphElement;
 const notePathEl = document.getElementById("note-path") as HTMLElement;

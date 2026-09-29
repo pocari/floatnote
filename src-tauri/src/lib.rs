@@ -47,16 +47,14 @@ const NOTE_FILE: &str = "note.md";
 pub enum Level {
     Top,
     Normal,
-    Bottom,
 }
 
 impl Level {
-    /// 最前面 → 通常 → 最奥 → 最前面 …
+    /// 最前面 ⇔ 通常
     fn next(self) -> Level {
         match self {
             Level::Top => Level::Normal,
-            Level::Normal => Level::Bottom,
-            Level::Bottom => Level::Top,
+            Level::Normal => Level::Top,
         }
     }
 }
@@ -64,7 +62,6 @@ impl Level {
 struct TrayItems {
     top: CheckMenuItem<Wry>,
     normal: CheckMenuItem<Wry>,
-    bottom: CheckMenuItem<Wry>,
 }
 
 // ---------- store helpers ----------
@@ -89,31 +86,18 @@ fn store_delete(app: &AppHandle, key: &str) -> Result<(), String> {
 
 // ---------- window level ----------
 
+/// 以前あった "bottom" などデシリアライズできない値は最前面として扱う
 fn current_level(app: &AppHandle) -> Level {
     store_get::<Level>(app, KEY_LEVEL).unwrap_or(Level::Top)
 }
 
 fn apply_level(app: &AppHandle, level: Level) -> Result<(), String> {
     let win = app.get_webview_window("main").ok_or("main window not found")?;
-    match level {
-        Level::Top => {
-            win.set_always_on_bottom(false).map_err(|e| e.to_string())?;
-            win.set_always_on_top(true).map_err(|e| e.to_string())?;
-        }
-        Level::Normal => {
-            win.set_always_on_top(false).map_err(|e| e.to_string())?;
-            win.set_always_on_bottom(false).map_err(|e| e.to_string())?;
-        }
-        Level::Bottom => {
-            win.set_always_on_top(false).map_err(|e| e.to_string())?;
-            win.set_always_on_bottom(true).map_err(|e| e.to_string())?;
-        }
-    }
+    win.set_always_on_top(level == Level::Top).map_err(|e| e.to_string())?;
     store_set(app, KEY_LEVEL, level)?;
     if let Some(items) = app.try_state::<TrayItems>() {
         let _ = items.top.set_checked(level == Level::Top);
         let _ = items.normal.set_checked(level == Level::Normal);
-        let _ = items.bottom.set_checked(level == Level::Bottom);
     }
     let _ = app.emit("level-changed", level);
     Ok(())
@@ -269,15 +253,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "ノートを表示", true, None::<&str>)?;
     let top = CheckMenuItem::with_id(app, "level_top", "常に最前面", true, level == Level::Top, None::<&str>)?;
     let normal = CheckMenuItem::with_id(app, "level_normal", "通常", true, level == Level::Normal, None::<&str>)?;
-    let bottom = CheckMenuItem::with_id(app, "level_bottom", "常に最奥", true, level == Level::Bottom, None::<&str>)?;
-    let level_menu = Submenu::with_items(app, "ウィンドウ位置", true, &[&top, &normal, &bottom])?;
+    let level_menu = Submenu::with_items(app, "ウィンドウ位置", true, &[&top, &normal])?;
     let settings = MenuItem::with_id(app, "settings", "設定...", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "FloatNote を終了", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&show, &sep, &level_menu, &settings, &sep2, &quit])?;
 
-    app.manage(TrayItems { top, normal, bottom });
+    app.manage(TrayItems { top, normal });
 
     TrayIconBuilder::with_id("tray")
         .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray@2x.png"))?)
@@ -289,7 +272,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "show" => bring_to_front(app),
             "level_top" => { let _ = apply_level(app, Level::Top); }
             "level_normal" => { let _ = apply_level(app, Level::Normal); }
-            "level_bottom" => { let _ = apply_level(app, Level::Bottom); }
             "settings" => { let _ = open_settings(app.clone()); }
             "quit" => app.exit(0),
             _ => {}
