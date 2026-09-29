@@ -23,6 +23,7 @@ pnpm dist                 # release .app + .dmg（make-dmg.sh）
 
 - **ウィンドウ位置は Rust 側が唯一の管理者**。`apply_level()` が NSWindow レベル変更・store への保存・トレイのチェック更新・`level-changed` イベント発火をまとめて行う。フロントは `set_level` を invoke し、`level-changed` を listen して表示を更新するだけ
 - **ホットキーは初期状態で未設定**。デフォルト値を入れない（ユーザーの明示要件）。登録は設定画面でキーを実際に押して行い、`set_hotkey` は失敗時に前のホットキーへロールバックする
+- **ウィンドウ位置の切替キー**（`level_hotkey`）はノートにフォーカスがあるときだけ効くローカルキー。グローバル登録せず、`main.ts` の keydown で `shortcut.ts` の文字列と比較して `cycle_level` を invoke する。これも初期状態は未設定。グローバルホットキーと同じキーは両コマンドで拒否する
 - **最奥（bottom）からの復帰経路は必ず最前面に戻す**。トレイ左クリック・「ノートを表示」・Dock クリック（`RunEvent::Reopen`）・ホットキーはすべて `bring_to_front()` を通す。表示だけして位置を変えない経路を作らないこと
 - **メインウィンドウは閉じても hide するだけ**（`CloseRequested` で `prevent_close`）。終了はトレイの「終了」か Cmd+Q
 - **エディタはプレーンな textarea**。以前 Milkdown（GFM WYSIWYG）を使っていたが自動整形が邪魔で撤去した。リッチエディタを再導入しない

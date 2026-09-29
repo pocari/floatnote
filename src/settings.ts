@@ -2,111 +2,96 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { isEnabled, enable, disable } from "@tauri-apps/plugin-autostart";
+import { shortcutFromEvent, pretty } from "./shortcut";
 
 type Level = "top" | "normal" | "bottom";
 
-const display = document.getElementById("hotkey-display") as HTMLDivElement;
-const recordBtn = document.getElementById("record-btn") as HTMLButtonElement;
-const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement;
 const errorEl = document.getElementById("error") as HTMLParagraphElement;
 const notePathEl = document.getElementById("note-path") as HTMLElement;
 const versionEl = document.getElementById("app-version") as HTMLElement;
 const radios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="level"]'));
-
-let recording = false;
-
-// ---------- key → tauri shortcut string ----------
-
-const CODE_MAP: Record<string, string> = {
-  Space: "Space", Enter: "Enter", Escape: "Escape", Tab: "Tab", Backspace: "Backspace", Delete: "Delete",
-  ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight",
-  Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown",
-  Minus: "Minus", Equal: "Equal", Comma: "Comma", Period: "Period", Slash: "Slash", Backslash: "Backslash",
-  BracketLeft: "BracketLeft", BracketRight: "BracketRight", Semicolon: "Semicolon", Quote: "Quote", Backquote: "Backquote",
-};
-
-function keyFromEvent(e: KeyboardEvent): string | null {
-  const c = e.code;
-  if (/^Key[A-Z]$/.test(c)) return c.slice(3);
-  if (/^Digit[0-9]$/.test(c)) return c.slice(5);
-  if (/^F([1-9]|1[0-9]|2[0-4])$/.test(c)) return c;
-  if (/^Numpad[0-9]$/.test(c)) return c;
-  return CODE_MAP[c] ?? null;
-}
-
-function shortcutFromEvent(e: KeyboardEvent): { ok: true; value: string } | { ok: false; reason: string } {
-  const key = keyFromEvent(e);
-  if (!key) return { ok: false, reason: "このキーは使えません" };
-  const mods: string[] = [];
-  if (e.metaKey) mods.push("Command");
-  if (e.ctrlKey) mods.push("Control");
-  if (e.altKey) mods.push("Option");
-  if (e.shiftKey) mods.push("Shift");
-  if (!e.metaKey && !e.ctrlKey && !e.altKey) return { ok: false, reason: "⌘ / ⌃ / ⌥ のいずれかを含めてください" };
-  return { ok: true, value: [...mods, key].join("+") };
-}
-
-const SYMBOL: Record<string, string> = {
-  Command: "⌘", Super: "⌘", Cmd: "⌘", Control: "⌃", Ctrl: "⌃", Option: "⌥", Alt: "⌥", Shift: "⇧",
-  Space: "Space", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→", Enter: "↩", Backspace: "⌫", Delete: "⌦", Tab: "⇥",
-};
-function pretty(shortcut: string): string {
-  return shortcut.split("+").map((p) => SYMBOL[p] ?? p).join(" ");
-}
-
-// ---------- UI ----------
 
 function setError(msg: string | null) {
   errorEl.hidden = !msg;
   errorEl.textContent = msg ?? "";
 }
 
-function render(hotkey: string | null) {
-  if (hotkey) {
-    display.textContent = pretty(hotkey);
-    display.classList.remove("empty");
-    clearBtn.disabled = false;
-  } else {
-    display.textContent = "未設定";
-    display.classList.add("empty");
-    clearBtn.disabled = true;
-  }
+// ---------- key recorder ----------
+// グローバルホットキーとウィンドウ位置の切替キーで同じ UI を使う
+
+type Recorder = { name: string; row: HTMLElement; get: string; set: string; event: string };
+
+const RECORDERS: Recorder[] = [
+  { name: "global", get: "get_hotkey", set: "set_hotkey", event: "hotkey-changed" },
+  { name: "level", get: "get_level_hotkey", set: "set_level_hotkey", event: "level-hotkey-changed" },
+].map((r) => ({ ...r, row: document.querySelector<HTMLElement>(`[data-recorder="${r.name}"]`)! }));
+
+let recording: Recorder | null = null;
+
+function parts(r: Recorder) {
+  return {
+    display: r.row.querySelector<HTMLDivElement>(".hotkey-display")!,
+    recordBtn: r.row.querySelector<HTMLButtonElement>(".record-btn")!,
+    clearBtn: r.row.querySelector<HTMLButtonElement>(".clear-btn")!,
+  };
 }
 
-function startRecording() {
-  recording = true;
+function render(r: Recorder, hotkey: string | null) {
+  const { display, clearBtn } = parts(r);
+  display.textContent = hotkey ? pretty(hotkey) : "未設定";
+  display.classList.toggle("empty", !hotkey);
+  clearBtn.disabled = !hotkey;
+}
+
+async function refresh(r: Recorder) {
+  render(r, await invoke<string | null>(r.get));
+}
+
+function startRecording(r: Recorder) {
+  if (recording) void stopRecording();
+  recording = r;
   setError(null);
+  const { display, recordBtn } = parts(r);
   display.classList.add("recording");
-  display.textContent = "キーを押してください…";
   display.classList.remove("empty");
+  display.textContent = "キーを押してください…";
   recordBtn.textContent = "キャンセル";
   display.focus();
 }
 
 async function stopRecording() {
-  recording = false;
+  const r = recording;
+  if (!r) return;
+  recording = null;
+  const { display, recordBtn } = parts(r);
   display.classList.remove("recording");
   recordBtn.textContent = "キーを設定";
-  render(await invoke<string | null>("get_hotkey"));
+  await refresh(r);
 }
 
-recordBtn.addEventListener("click", () => (recording ? stopRecording() : startRecording()));
-
-clearBtn.addEventListener("click", async () => {
-  try {
-    await invoke("set_hotkey", { hotkey: null });
-    setError(null);
-  } catch (e) {
-    setError(String(e));
-  }
-  render(await invoke<string | null>("get_hotkey"));
-});
+for (const r of RECORDERS) {
+  const { recordBtn, clearBtn } = parts(r);
+  recordBtn.addEventListener("click", () => (recording === r ? stopRecording() : startRecording(r)));
+  clearBtn.addEventListener("click", async () => {
+    try {
+      await invoke(r.set, { hotkey: null });
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+    await refresh(r);
+  });
+  await listen<string | null>(r.event, (ev) => { if (recording !== r) render(r, ev.payload); });
+  await refresh(r);
+}
 
 window.addEventListener("keydown", async (e) => {
-  if (!recording) return;
+  const r = recording;
+  if (!r) return;
   e.preventDefault();
   e.stopPropagation();
   if (e.key === "Escape") { stopRecording(); return; }
+  const { display } = parts(r);
   // modifier-only press: keep waiting, show partial state
   if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) {
     const mods: string[] = [];
@@ -117,10 +102,10 @@ window.addEventListener("keydown", async (e) => {
     display.textContent = mods.join(" ") + " …";
     return;
   }
-  const r = shortcutFromEvent(e);
-  if (!r.ok) { setError(r.reason); return; }
+  const res = shortcutFromEvent(e);
+  if (!res.ok) { setError(res.reason); return; }
   try {
-    await invoke("set_hotkey", { hotkey: r.value });
+    await invoke(r.set, { hotkey: res.value });
     setError(null);
   } catch (err) {
     setError(String(err));
@@ -131,7 +116,7 @@ window.addEventListener("keydown", async (e) => {
 window.addEventListener("keyup", (e) => {
   if (!recording) return;
   if (["Meta", "Control", "Alt", "Shift"].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-    display.textContent = "キーを押してください…";
+    parts(recording).display.textContent = "キーを押してください…";
   }
 });
 
@@ -151,9 +136,6 @@ function renderLevel(level: Level) {
 }
 
 await listen<Level>("level-changed", (ev) => renderLevel(ev.payload));
-await listen<string | null>("hotkey-changed", (ev) => { if (!recording) render(ev.payload); });
-
-render(await invoke<string | null>("get_hotkey"));
 renderLevel(await invoke<Level>("get_level"));
 notePathEl.textContent = await invoke<string>("get_note_path").catch(() => "(不明)");
 versionEl.textContent = await getVersion().then((v) => `v${v}`).catch(() => "");

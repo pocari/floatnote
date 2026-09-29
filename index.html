@@ -10,16 +10,13 @@
   <body>
     <header id="bar" data-tauri-drag-region>
       <span class="spacer" data-tauri-drag-region></span>
-      <div class="menu-wrap">
-        <button id="level-btn" class="icon-btn" title="ウィンドウ位置"></button>
-        <div id="level-menu" class="menu" hidden>
-          <button data-level="top">⬆ 常に最前面</button>
-          <button data-level="normal">↕ 通常</button>
-          <button data-level="bottom">⬇ 常に最奥 <small>他のウィンドウの後ろに回ります</small></button>
-        </div>
-      </div>
       <button id="settings-btn" class="icon-btn" title="設定">⚙</button>
     </header>
+    <div id="level" role="radiogroup" aria-label="ウィンドウ位置">
+      <button data-level="top" role="radio">⬆ 最前面</button>
+      <button data-level="normal" role="radio">↕ 通常</button>
+      <button data-level="bottom" role="radio">⬇ 最奥</button>
+    </div>
     <section id="focus" hidden>
       <ul id="focus-list"></ul>
     </section>

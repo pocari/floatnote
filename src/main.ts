@@ -1,16 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { shortcutFromEvent, pretty } from "./shortcut";
 
 type Level = "top" | "normal" | "bottom";
 
-const LEVEL_ICON: Record<Level, string> = { top: "⬆", normal: "↕", bottom: "⬇" };
-const LEVEL_LABEL: Record<Level, string> = { top: "常に最前面", normal: "通常", bottom: "常に最奥" };
+const LEVEL_LABEL: Record<Level, string> = { top: "常に最前面", normal: "通常", bottom: "常に最奥（他のウィンドウの後ろに回ります）" };
 
-const levelBtn = document.getElementById("level-btn") as HTMLButtonElement;
+const levelEl = document.getElementById("level") as HTMLDivElement;
+const levelBtns = Array.from(levelEl.querySelectorAll<HTMLButtonElement>("button[data-level]"));
 const settingsBtn = document.getElementById("settings-btn") as HTMLButtonElement;
 const toast = document.getElementById("toast") as HTMLDivElement;
-const levelMenu = document.getElementById("level-menu") as HTMLDivElement;
 const editor = document.getElementById("editor") as HTMLTextAreaElement;
 const highlight = document.getElementById("highlight") as HTMLDivElement;
 const editorWrap = document.getElementById("editor-wrap") as HTMLDivElement;
@@ -25,35 +25,49 @@ function showToast(msg: string) {
 
 // ---------- window level ----------
 
+let levelHotkey: string | null = null;
+
 function renderLevel(level: Level) {
-  levelBtn.textContent = LEVEL_ICON[level];
-  levelBtn.title = `ウィンドウ位置: ${LEVEL_LABEL[level]}`;
-  levelBtn.dataset.level = level;
-  levelMenu.querySelectorAll<HTMLButtonElement>("button").forEach((b) => {
-    b.classList.toggle("active", b.dataset.level === level);
+  levelBtns.forEach((b) => {
+    const on = b.dataset.level === level;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-checked", String(on));
   });
 }
 
-levelBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  levelMenu.hidden = !levelMenu.hidden;
-});
-levelMenu.addEventListener("click", async (e) => {
+function renderLevelTitles() {
+  const hint = levelHotkey ? `（${pretty(levelHotkey)} で順に切替）` : "";
+  levelBtns.forEach((b) => (b.title = LEVEL_LABEL[b.dataset.level as Level] + hint));
+}
+
+levelEl.addEventListener("click", async (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-level]");
   if (!btn) return;
-  levelMenu.hidden = true;
   try {
     await invoke("set_level", { level: btn.dataset.level as Level });
   } catch (err) {
     showToast(String(err));
   }
+  editor.focus();
 });
-document.addEventListener("click", () => (levelMenu.hidden = true));
-window.addEventListener("blur", () => (levelMenu.hidden = true));
+
+// ノートにフォーカスがあるときだけ効く順送りキー。editor の Tab 処理などより先に拾う
+window.addEventListener("keydown", (e) => {
+  if (!levelHotkey || e.repeat) return;
+  const r = shortcutFromEvent(e);
+  if (!r.ok || r.value !== levelHotkey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  invoke("cycle_level").catch((err) => showToast(String(err)));
+}, true);
+
 settingsBtn.addEventListener("click", () => invoke("open_settings").catch((e) => showToast(String(e))));
 
 await listen<Level>("level-changed", (ev) => renderLevel(ev.payload));
+await listen<string | null>("level-hotkey-changed", (ev) => { levelHotkey = ev.payload; renderLevelTitles(); });
 renderLevel(await invoke<Level>("get_level"));
+levelHotkey = await invoke<string | null>("get_level_hotkey");
+renderLevelTitles();
 
 // ---------- editor (plain text) ----------
 
@@ -258,7 +272,7 @@ function focusEditor() {
   editor.focus();
 }
 window.addEventListener("focus", () => {
-  if (levelMenu.hidden && document.activeElement?.tagName !== "BUTTON") focusEditor();
+  if (document.activeElement?.tagName !== "BUTTON") focusEditor();
 });
 editor.setSelectionRange(editor.value.length, editor.value.length);
 focusEditor();
